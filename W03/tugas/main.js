@@ -159,7 +159,10 @@ function main() {
         verticesT
     );
 
-    var dVertexCount = vertices.length / 3;
+    var sVertexCount = verticesS.length / 3;
+    var tVertexCount = verticesT.length / 3;
+
+    // var dVertexCount = vertices.length / 3;
 
     var positionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
@@ -209,9 +212,13 @@ function main() {
     gl.clearColor(1.0, 1.0, 1.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    // Huruf "S"
-    gl.uniform4f(uColor, 0.0, 0.2, 0.9, 1.0);
-    gl.drawArrays(gl.TRIANGLES, 0, dVertexCount);
+    // Draw S
+    gl.uniform4f(uColor, 0.0, 0.2, 0.9, 1.0); // Blue
+    gl.drawArrays(gl.TRIANGLES, 0, sVertexCount);
+
+    // Draw T
+    gl.uniform4f(uColor, 0.9, 0.1, 0.1, 1.0); // Red
+    gl.drawArrays(gl.TRIANGLES, sVertexCount,tVertexCount);
 }
-2
+
 window.onload = main;
