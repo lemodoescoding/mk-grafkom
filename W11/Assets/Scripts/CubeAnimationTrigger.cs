@@ -38,6 +38,10 @@ public class CubeAnimationTrigger : MonoBehaviour
             return;
         }
 
+        // CubeController mematikan Animator saat Scale manual.
+        // Nyalakan lagi supaya animasi keyframe bisa diputar.
+        if (!animator.enabled) animator.enabled = true;
+
         animator.SetTrigger(triggerName);
     }
 
