@@ -6,8 +6,9 @@ using UnityEngine.InputSystem;
 
 /// <summary>
 /// Animasi prosedural (logic-driven, ditulis dalam kode) untuk kubus.
-/// - Rotasi  : tombol di layar, tombol panah / WASD, atau drag mouse pada kubus.
-/// - Translate & Scale : tombol di layar mengubah Transform lewat kode.
+/// - Rotasi    : tombol di layar, WASD, atau drag mouse pada kubus.
+/// - Translate : tombol di layar, arrow keys (X/Z), Shift + Up/Down (Y).
+/// - Scale     : tombol Scale Up / Scale Down.
 /// Semua perubahan per frame memakai Time.deltaTime agar tidak bergantung frame rate.
 ///
 /// Input mendukung Input Manager lama maupun Input System baru.
@@ -19,8 +20,9 @@ public class CubeController : MonoBehaviour
     [SerializeField] private float dragSensitivity = 4f;  // derajat per pixel mouse
 
     [Header("Translate")]
-    [SerializeField] private float translateStep = 0.5f;  // jarak per klik
-    [SerializeField] private float translateRange = 2.5f; // batas kiri/kanan dari posisi awal
+    [SerializeField] private float translateStep = 0.5f;   // jarak per klik tombol
+    [SerializeField] private float translateSpeed = 3f;    // unit per detik (keyboard)
+    [SerializeField] private float translateRange = 2.5f; // batas gerak dari posisi awal
 
     [Header("Scale")]
     [SerializeField] private float scaleStep = 0.25f;
@@ -69,6 +71,7 @@ public class CubeController : MonoBehaviour
         if (rotateRightHeld) RotateBy(rotationSpeed * Time.deltaTime, 0f);
 
         HandleKeyboardRotation();
+        HandleKeyboardTranslation();
         HandleMouseDrag();
     }
 
@@ -87,20 +90,20 @@ public class CubeController : MonoBehaviour
         float pitch = 0f;
 
 #if ENABLE_LEGACY_INPUT_MANAGER
-        // Input Manager lama.
-        if (Input.GetKey(KeyCode.LeftArrow) || Input.GetKey(KeyCode.A)) yaw -= 1f;
-        if (Input.GetKey(KeyCode.RightArrow) || Input.GetKey(KeyCode.D)) yaw += 1f;
-        if (Input.GetKey(KeyCode.UpArrow) || Input.GetKey(KeyCode.W)) pitch -= 1f;
-        if (Input.GetKey(KeyCode.DownArrow) || Input.GetKey(KeyCode.S)) pitch += 1f;
+        // WASD = rotasi.
+        if (Input.GetKey(KeyCode.A)) yaw -= 1f;
+        if (Input.GetKey(KeyCode.D)) yaw += 1f;
+        if (Input.GetKey(KeyCode.W)) pitch -= 1f;
+        if (Input.GetKey(KeyCode.S)) pitch += 1f;
 #elif ENABLE_INPUT_SYSTEM
-        // Input System baru (dipakai bila Active Input Handling = Input System Package).
+        // WASD = rotasi.
         Keyboard keyboard = Keyboard.current;
         if (keyboard != null)
         {
-            if (keyboard.leftArrowKey.isPressed || keyboard.aKey.isPressed) yaw -= 1f;
-            if (keyboard.rightArrowKey.isPressed || keyboard.dKey.isPressed) yaw += 1f;
-            if (keyboard.upArrowKey.isPressed || keyboard.wKey.isPressed) pitch -= 1f;
-            if (keyboard.downArrowKey.isPressed || keyboard.sKey.isPressed) pitch += 1f;
+            if (keyboard.aKey.isPressed) yaw -= 1f;
+            if (keyboard.dKey.isPressed) yaw += 1f;
+            if (keyboard.wKey.isPressed) pitch -= 1f;
+            if (keyboard.sKey.isPressed) pitch += 1f;
         }
 #endif
 
@@ -109,6 +112,75 @@ public class CubeController : MonoBehaviour
             RotateBy(yaw * rotationSpeed * Time.deltaTime,
                      pitch * rotationSpeed * Time.deltaTime);
         }
+    }
+
+    /// <summary>
+    /// Arrow keys = geser pada bidang X/Z.
+    /// Shift + Up/Down = geser pada sumbu Y.
+    /// Kecepatan memakai translateSpeed (unit per detik).
+    /// </summary>
+    private void HandleKeyboardTranslation()
+    {
+        Vector3 direction = Vector3.zero;
+        bool shiftHeld = IsShiftHeld();
+
+#if ENABLE_LEGACY_INPUT_MANAGER
+        if (!shiftHeld)
+        {
+            if (Input.GetKey(KeyCode.LeftArrow)) direction.x -= 1f;
+            if (Input.GetKey(KeyCode.RightArrow)) direction.x += 1f;
+            if (Input.GetKey(KeyCode.UpArrow)) direction.z += 1f;
+            if (Input.GetKey(KeyCode.DownArrow)) direction.z -= 1f;
+        }
+        else
+        {
+            if (Input.GetKey(KeyCode.UpArrow)) direction.y += 1f;
+            if (Input.GetKey(KeyCode.DownArrow)) direction.y -= 1f;
+        }
+#elif ENABLE_INPUT_SYSTEM
+        Keyboard keyboard = Keyboard.current;
+        if (keyboard != null)
+        {
+            if (!shiftHeld)
+            {
+                if (keyboard.leftArrowKey.isPressed) direction.x -= 1f;
+                if (keyboard.rightArrowKey.isPressed) direction.x += 1f;
+                if (keyboard.upArrowKey.isPressed) direction.z += 1f;
+                if (keyboard.downArrowKey.isPressed) direction.z -= 1f;
+            }
+            else
+            {
+                if (keyboard.upArrowKey.isPressed) direction.y += 1f;
+                if (keyboard.downArrowKey.isPressed) direction.y -= 1f;
+            }
+        }
+#endif
+
+        if (direction == Vector3.zero) return;
+
+        // Normalized agar kecepatan diagonal sama dengan kecepatan satu sumbu.
+        Vector3 target = transform.position +
+                         direction.normalized * (translateSpeed * Time.deltaTime);
+
+        // Jaga kubus tetap dekat posisi awal.
+        target.x = Mathf.Clamp(target.x, startPosition.x - translateRange, startPosition.x + translateRange);
+        target.y = Mathf.Clamp(target.y, startPosition.y - translateRange, startPosition.y + translateRange);
+        target.z = Mathf.Clamp(target.z, startPosition.z - translateRange, startPosition.z + translateRange);
+
+        transform.position = target;
+    }
+
+    private bool IsShiftHeld()
+    {
+#if ENABLE_LEGACY_INPUT_MANAGER
+        return Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+#elif ENABLE_INPUT_SYSTEM
+        Keyboard keyboard = Keyboard.current;
+        return keyboard != null &&
+               (keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed);
+#else
+        return false;
+#endif
     }
 
     private void HandleMouseDrag()
@@ -243,10 +315,13 @@ public class CubeController : MonoBehaviour
 
         if (GUI.Button(new Rect(x, y, w, h), "Reset")) ResetCube();
 
-        GUI.Label(new Rect(PanelRect.x, PanelRect.yMax + 4f, 460f, 22f),
+        GUI.Label(new Rect(PanelRect.x, PanelRect.yMax + 4f, 460f, 20f),
                   "Scale: " + transform.localScale.x.ToString("0.00"));
 
-        GUI.Label(new Rect(PanelRect.x, PanelRect.yMax + 22f, 460f, 40f),
-                  "Arrow keys / WASD or drag the cube to rotate.");
+        GUI.Label(new Rect(PanelRect.x, PanelRect.yMax + 24f, 460f, 20f),
+                  "WASD: rotate  |  Arrow keys: move X/Z");
+
+        GUI.Label(new Rect(PanelRect.x, PanelRect.yMax + 44f, 460f, 20f),
+                  "Shift + Up/Down: move Y  |  Drag cube: rotate");
     }
 }
